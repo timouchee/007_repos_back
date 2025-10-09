@@ -346,7 +346,7 @@ function resolution(action) {
 
 
 const app = express();
-const port = 3001;
+const port = process.env.PORT || 3001; // fallback pour dev local
 let timerEnd = null;
 let timerInterval = null;
 let messages = [];
@@ -362,8 +362,16 @@ const httpServer = createServer(app);
 // Crée le serveur Socket.IO
 const io = new Server(httpServer, {
     cors: {
-        origin: "*", // autorise tout pour dev, à restreindre en prod
+        origin: [
+            "http://localhost:5173",           // front local Vite
+            "https://zero-zero-sept.vercel.app" // front en ligne (Vercel)
+        ],
+        methods: ["GET", "POST"]
     },
+
+    /* cors: {
+        origin: "*", // autorise tout pour dev, à restreindre en prod
+    }, */
 });
 
 // Connexion d'un client
