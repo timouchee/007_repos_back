@@ -366,7 +366,7 @@ const io = new Server(httpServer, {
     cors: {
         origin: [
             "http://localhost:5173",           // front local Vite
-            "https://zero-zero-sept.vercel.app" // front en ligne (Vercel)
+            "https://007-repos-front.vercel.app" // front en ligne (Vercel)
         ],
         methods: ["GET", "POST"]
     },
