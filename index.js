@@ -361,17 +361,19 @@ const httpServer = createServer(app);
 
 // Crée le serveur Socket.IO
 const io = new Server(httpServer, {
+    // PROD
+    /*
     cors: {
         origin: [
             "http://localhost:5173",           // front local Vite
-            "https://007-repos-front.vercel.app" // front en ligne (Vercel)
+            "https://zero-zero-sept.vercel.app" // front en ligne (Vercel)
         ],
         methods: ["GET", "POST"]
-    },
-
-    /* cors: {
+    },*/
+    // DEV
+    cors: {
         origin: "*", // autorise tout pour dev, à restreindre en prod
-    }, */
+    },
 });
 
 // Connexion d'un client
@@ -444,6 +446,13 @@ io.on("connection", (socket) => {
 
             let countdown = setInterval(() => {
                 timerEnd--;
+                // verif si y a toujour assez de joueur pour commencer la game
+                if (info_party.nb_joueur < info_party.min_joueur) {
+                    console.log("Le nombre de joueur est redescendu en dessous du minimum, on annule le countdown.");
+                    timerEnd = 11;
+                    io.emit("new_game_in", timerEnd); // on informe tout le monde du temps restant
+                    clearInterval(countdown);
+                }
 
                 if (timerEnd > 0) {
                     io.emit("new_game_in", timerEnd); // on informe tout le monde du temps restant
@@ -525,6 +534,14 @@ io.on("connection", (socket) => {
 
         timerInterval = setInterval(() => {
             timerEnd--;
+
+            if (info_party.nb_joueur < info_party.min_joueur) {
+                console.log("Le nombre de joueur est redescendu en dessous du minimum, on annule le countdown.");
+                timerEnd = 11;
+                io.emit("new_game_in", timerEnd); // on informe tout le monde du temps restant
+                clearInterval(timerInterval);
+            }
+
             if (timerEnd > 0) {
                 io.emit("new_game_in", timerEnd);
             } else {
@@ -641,6 +658,68 @@ io.on("connection", (socket) => {
         io.to(id_joueur).emit("action_possible", lst_action_possible_par_joueur[id_joueur]);
     }
 
+    function constructAndSendFeedback() {
+        // envoyer le feedback
+        const feedback = [];
+
+        for (const id_joueur in dico_action_joueur) {
+            const actionInfo = dico_action_joueur[id_joueur];
+            const name_joueur = liste_joueur[id_joueur]?.name || id_joueur;
+
+            if (Array.isArray(actionInfo.target)) {
+                // plusieurs cibles
+                feedback.push({
+                    action: actionInfo.action,
+                    target: actionInfo.target,
+                    id_joueur,
+                    name_joueur,
+                });
+            } else if (actionInfo.target) {
+                // cible unique
+                feedback.push({
+                    action: actionInfo.action,
+                    target: [actionInfo.target],
+                    id_joueur,
+                    name_joueur,
+                });
+            } else {
+                // pas de cible
+                feedback.push({
+                    action: actionInfo.action,
+                    id_joueur,
+                    name_joueur,
+                });
+            }
+        }
+
+        // Émet à tous les clients connectés
+        io.emit("last_round_feedback", feedback);
+    }
+
+    function verifForStartARound() {
+        // on verifie si tout les joueur "player" on fait leur action
+        let nb_joueur_player = Object.values(liste_joueur)
+            .filter(joueur => joueur.state === "player")
+            .length;
+        if (Object.keys(dico_action_joueur).length == nb_joueur_player) {
+            console.log("Tous les joueurs ont fait leur action");
+            let resolutionAnswer = resolution(dico_action_joueur);
+            console.log("Resolution du tour : \n ", resolutionAnswer);
+
+            constructAndSendFeedback()
+
+
+            // appliquer les effet de la resolution
+            applyEffect(resolutionAnswer);
+            dico_action_joueur = {};
+            info_party.tour_party++;
+            for (let id_joueur in liste_joueur) {
+                io.to(id_joueur).emit("resolutionDuTour", resolutionAnswer[id_joueur]);
+            }
+
+        }
+    }
+
     socket.on("thisIsMyAction", (data) => {
         // si le joueur existe pas dans la liste des joueur on fait rien
         if (liste_joueur[socket.id] == undefined || liste_joueur[socket.id].state != "player") {
@@ -664,60 +743,8 @@ io.on("connection", (socket) => {
                 console.log("ERREUR : le joueur ", socket.id, "a une recharge negative");
                 liste_joueur[socket.id].recharge = 0;
             }
-            // on verifie si tout les joueur "player" on fait leur action
-            let nb_joueur_player = Object.values(liste_joueur)
-                .filter(joueur => joueur.state === "player")
-                .length;
-            if (Object.keys(dico_action_joueur).length == nb_joueur_player) {
-                console.log("Tous les joueurs ont fait leur action");
-                let resolutionAnswer = resolution(dico_action_joueur);
-                console.log("Resolution du tour : \n ", resolutionAnswer);
 
-                // envoyer le feedback
-                const feedback = [];
-
-                for (const id_joueur in dico_action_joueur) {
-                    const actionInfo = dico_action_joueur[id_joueur];
-                    const name_joueur = liste_joueur[id_joueur]?.name || id_joueur;
-
-                    if (Array.isArray(actionInfo.target)) {
-                        // plusieurs cibles
-                        feedback.push({
-                            action: actionInfo.action,
-                            target: actionInfo.target,
-                            id_joueur,
-                            name_joueur,
-                        });
-                    } else if (actionInfo.target) {
-                        // cible unique
-                        feedback.push({
-                            action: actionInfo.action,
-                            target: [actionInfo.target],
-                            id_joueur,
-                            name_joueur,
-                        });
-                    } else {
-                        // pas de cible
-                        feedback.push({
-                            action: actionInfo.action,
-                            id_joueur,
-                            name_joueur,
-                        });
-                    }
-                }
-
-                // Émet à tous les clients connectés
-                io.emit("last_round_feedback", feedback);
-
-                // appliquer les effet de la resolution
-                applyEffect(resolutionAnswer);
-                dico_action_joueur = {};
-                info_party.tour_party++;
-                for (let id_joueur in liste_joueur) {
-                    io.to(id_joueur).emit("resolutionDuTour", resolutionAnswer[id_joueur]);
-                }
-
-            }
+            verifForStartARound()
         }
         else {
             socket.emit("action_not_valid", "Action non reçue, elle n'est pas dans la liste des actions possibles");
@@ -784,6 +811,8 @@ io.on("connection", (socket) => {
 
     socket.on("client_quit", () => {
         console.log("Client déconnecté :", socket.id);
+        // noter son le dernier etat de son state
+        let last_tate = liste_joueur[socket.id]?.state || "spectator";
         //suprimer le perso de la party
         if (liste_joueur[socket.id] != undefined) {
             delete liste_joueur[socket.id];
@@ -809,7 +838,21 @@ io.on("connection", (socket) => {
 
 
         }
-        else { io.emit("game_state", { "info_party_for_client": info_party, "liste_joueur_for_client": liste_joueur }); }
+        else {
+            // si le socket.id du joueur deconnecté est dans dico_action_joueur on le suprime
+            if (dico_action_joueur[socket.id] != undefined) {
+                console.log("Le joueur déconnecté avait déjà fait son action, on la supprime :", socket.id);
+                delete dico_action_joueur[socket.id];
+                verifForStartARound();
+            }
+            // si le joueur deconnecté etais player 
+            else if (last_tate == "player") {
+                console.log("Le joueur déconnecté n'avait pas encore fait son action mais etais en state player, on verifie si la partie peut continuer :", socket.id);
+                verifForStartARound();
+            }
+
+            io.emit("game_state", { "info_party_for_client": info_party, "liste_joueur_for_client": liste_joueur });
+        }
     });
 
 });
