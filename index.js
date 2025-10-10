@@ -362,18 +362,18 @@ const httpServer = createServer(app);
 // Crée le serveur Socket.IO
 const io = new Server(httpServer, {
     // PROD
-    /*
+    
     cors: {
         origin: [
             "http://localhost:5173",           // front local Vite
             "https://zero-zero-sept.vercel.app" // front en ligne (Vercel)
         ],
         methods: ["GET", "POST"]
-    },*/
-    // DEV
-    cors: {
-        origin: "*", // autorise tout pour dev, à restreindre en prod
     },
+    // DEV
+    /* cors: {
+        origin: "*", // autorise tout pour dev, à restreindre en prod
+    }, */
 });
 
 // Connexion d'un client
