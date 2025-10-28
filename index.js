@@ -14,6 +14,7 @@ let liste_joueur_exemple =
     "joueur 3": { "name": "p3", "cooldown_miroire": 0, "recharge": 0, state: "winner", "PV": 1, "effect": [] },
     "joueur 4": { "name": "p4", "cooldown_miroire": 0, "recharge": 0, state: "spectator", "PV": 1, "effect": [] },
     "joueur 5": { "name": "p5", "cooldown_miroire": 0, "recharge": 0, state: "dead", "PV": 1, "effect": [] },
+    "joueur 6": { "name": "p5", "cooldown_miroire": 0, "recharge": 0, state: "quit", "PV": 1, "effect": [] },
 }
 
 let data_teste_1_exemple =
@@ -418,12 +419,23 @@ io.on("connection", (socket) => {
     socket.on("join_party", (nickName) => {
         console.log("Client a rejoint la partie :", socket.id);
         console.log("nb joueurs dans la partie avant l'ajout:", info_party.nb_joueur);
-        liste_joueur[socket.id] = { "name": nickName, "cooldown_miroire": 0, state: "spectator", "recharge": 0, "PV": 1, "effect": [] };//on le rajoute a la liste des joueurs
+        if (liste_joueur[socket.id]) {
+            liste_joueur[socket.id].state = "spectator";
+            liste_joueur[socket.id].name = nickName;
+        }
+        else {
+            liste_joueur[socket.id] = { "name": nickName, "cooldown_miroire": 0, state: "spectator", "recharge": 0, "PV": 1, "effect": [] };//on le rajoute a la liste des joueurs
+        }
         info_party.nb_joueur = Object.keys(liste_joueur).length;
         timerEnd = 10;
         socket.emit("party_joined", "1AB2C3");
         socket.emit("load_history", messages);
         io.emit("game_state", { "info_party_for_client": info_party, "liste_joueur_for_client": liste_joueur });
+        socket.emit("admin_send_all", {
+            "info_party_for_admin": info_party,
+            "liste_joueur_for_admin": liste_joueur,
+            "dico_action_joueur_admin": dico_action_joueur,
+        });
         console.log("Nombre de joueurs dans la partie :", info_party.nb_joueur);
         if (info_party.nb_joueur == 0) {
             console.log("y a eu un probleme car je vien d'ajouter un joueur et le nombre de joueur est a 0");
@@ -436,6 +448,11 @@ io.on("connection", (socket) => {
             liste_joueur = {};
             liste_joueur[socket.id] = { "name": nickName, "cooldown_miroire": 0, state: "spectator", "recharge": 0 };//on le rajoute a la liste des joueurs
             io.emit("game_state", { "info_party_for_client": info_party, "liste_joueur_for_client": liste_joueur });
+            socket.emit("admin_send_all", {
+                "info_party_for_admin": info_party,
+                "liste_joueur_for_admin": liste_joueur,
+                "dico_action_joueur_admin": dico_action_joueur,
+            });
 
         }
         console.log("etat de a la partie :", info_party.etat_party);
@@ -758,9 +775,24 @@ io.on("connection", (socket) => {
     });
 
     //un joueur veut rejoindre la party
+    socket.on("admin_get_all", () => {
+        console.log("l'admin ", socket.id, " a demandé tous");
+        socket.emit("admin_send_all", {
+            "info_party_for_admin": info_party,
+            "liste_joueur_for_admin": liste_joueur,
+            "dico_action_joueur_admin": dico_action_joueur,
+        });
+    });
+
+    //un joueur veut rejoindre la party
     socket.on("get_game_state", () => {
         console.log("Client ", socket.id, " a demandé l'état de la partie :", info_party.id_party);
         socket.emit("game_state", { "info_party_for_client": info_party, "liste_joueur_for_client": liste_joueur });
+        socket.emit("admin_send_all", {
+            "info_party_for_admin": info_party,
+            "liste_joueur_for_admin": liste_joueur,
+            "dico_action_joueur_admin": dico_action_joueur,
+        });
     });
 
     socket.on("get_dico_action", () => {
@@ -778,7 +810,12 @@ io.on("connection", (socket) => {
         console.log("Client déconnecté (via disconnecting) :", socket.id);
         //suprimer le perso de la party
         if (liste_joueur[socket.id] != undefined) {
-            delete liste_joueur[socket.id];
+            liste_joueur[socket.id].state = "quit";
+            liste_joueur[socket.id].cooldown_miroire = 0;
+            liste_joueur[socket.id].PV = 1;
+            liste_joueur[socket.id].effect = [];
+            liste_joueur[socket.id].recharge = 0;
+            // delete liste_joueur[socket.id];
             info_party.nb_joueur = Object.keys(liste_joueur).length;
         }
         let nb_joueur_player = Object.values(liste_joueur)
@@ -795,13 +832,25 @@ io.on("connection", (socket) => {
             timerEnd = 11;
             //clear tous
             io.emit("game_state", { "info_party_for_client": info_party, "liste_joueur_for_client": liste_joueur });
+            socket.emit("admin_send_all", {
+                "info_party_for_admin": info_party,
+                "liste_joueur_for_admin": liste_joueur,
+                "dico_action_joueur_admin": dico_action_joueur,
+            });
             info_party.etat_party = "waiting";
             lst_action_possible_par_joueur = {};
             info_party.tour_party = 0;
 
 
         }
-        else { io.emit("game_state", { "info_party_for_client": info_party, "liste_joueur_for_client": liste_joueur }); }
+        else {
+            io.emit("game_state", { "info_party_for_client": info_party, "liste_joueur_for_client": liste_joueur });
+            socket.emit("admin_send_all", {
+                "info_party_for_admin": info_party,
+                "liste_joueur_for_admin": liste_joueur,
+                "dico_action_joueur_admin": dico_action_joueur,
+            });
+        }
     });
 
     socket.on("disconnect", () => {
@@ -815,7 +864,12 @@ io.on("connection", (socket) => {
         let last_tate = liste_joueur[socket.id]?.state || "spectator";
         //suprimer le perso de la party
         if (liste_joueur[socket.id] != undefined) {
-            delete liste_joueur[socket.id];
+            liste_joueur[socket.id].state = "quit";
+            liste_joueur[socket.id].cooldown_miroire = 0;
+            liste_joueur[socket.id].PV = 1;
+            liste_joueur[socket.id].effect = [];
+            liste_joueur[socket.id].recharge = 0;
+            // delete liste_joueur[socket.id];
             info_party.nb_joueur = Object.keys(liste_joueur).length;
         }
         let nb_joueur_player = Object.values(liste_joueur)
@@ -832,6 +886,11 @@ io.on("connection", (socket) => {
             timerEnd = 11;
             //clear tous
             io.emit("game_state", { "info_party_for_client": info_party, "liste_joueur_for_client": liste_joueur });
+            socket.emit("admin_send_all", {
+                "info_party_for_admin": info_party,
+                "liste_joueur_for_admin": liste_joueur,
+                "dico_action_joueur_admin": dico_action_joueur,
+            });
             info_party.etat_party = "waiting";
             lst_action_possible_par_joueur = {};
             info_party.tour_party = 0;
@@ -852,6 +911,11 @@ io.on("connection", (socket) => {
             }
 
             io.emit("game_state", { "info_party_for_client": info_party, "liste_joueur_for_client": liste_joueur });
+            socket.emit("admin_send_all", {
+                "info_party_for_admin": info_party,
+                "liste_joueur_for_admin": liste_joueur,
+                "dico_action_joueur_admin": dico_action_joueur,
+            });
         }
     });
 
