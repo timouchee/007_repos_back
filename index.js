@@ -363,7 +363,7 @@ const httpServer = createServer(app);
 // Crée le serveur Socket.IO
 const io = new Server(httpServer, {
     // PROD
-    
+
     cors: {
         origin: [
             "http://localhost:5173",           // front local Vite
@@ -456,15 +456,23 @@ io.on("connection", (socket) => {
 
         }
         console.log("etat de a la partie :", info_party.etat_party);
-        if (info_party.nb_joueur >= info_party.min_joueur && info_party.etat_party == "waiting")//si le nombre de joueur est suffisant on commence la partie
+        // nombre de joueur comptable pour lancer une game (quit et player non compris)
+        let nb_joueur_spec_win_death = Object.values(liste_joueur_exemple).filter(
+            (j) => j.state !== "player" && j.state !== "quit"
+        ).length;
+
+        if (nb_joueur_spec_win_death >= info_party.min_joueur && info_party.etat_party == "waiting")//si le nombre de joueur est suffisant on commence la partie
         {
             console.log("La partie commence dans 10 sec !");
             timerEnd = 10;
 
             let countdown = setInterval(() => {
                 timerEnd--;
+                nb_joueur_spec_win_death = Object.values(liste_joueur_exemple).filter(
+                    (j) => j.state !== "player" && j.state !== "quit"
+                ).length;
                 // verif si y a toujour assez de joueur pour commencer la game
-                if (info_party.nb_joueur < info_party.min_joueur) {
+                if (nb_joueur_spec_win_death < info_party.min_joueur) {
                     console.log("Le nombre de joueur est redescendu en dessous du minimum, on annule le countdown.");
                     timerEnd = 11;
                     io.emit("new_game_in", timerEnd); // on informe tout le monde du temps restant
@@ -551,8 +559,10 @@ io.on("connection", (socket) => {
 
         timerInterval = setInterval(() => {
             timerEnd--;
-
-            if (info_party.nb_joueur < info_party.min_joueur) {
+            let nb_joueur_spec_win_death = Object.values(liste_joueur_exemple).filter(
+                (j) => j.state !== "player" && j.state !== "quit"
+            ).length;
+            if (nb_joueur_spec_win_death < info_party.min_joueur) {
                 console.log("Le nombre de joueur est redescendu en dessous du minimum, on annule le countdown.");
                 timerEnd = 11;
                 io.emit("new_game_in", timerEnd); // on informe tout le monde du temps restant
@@ -588,8 +598,11 @@ io.on("connection", (socket) => {
                 }
 
                 // relancer une partie si les conditions sont ok
+                let nb_joueur_spec_win_death = Object.values(liste_joueur_exemple).filter(
+                    (j) => j.state !== "player" && j.state !== "quit"
+                ).length;
                 if (
-                    info_party.nb_joueur >= info_party.min_joueur &&
+                    nb_joueur_spec_win_death >= info_party.min_joueur &&
                     info_party.etat_party === "waiting"
                 ) {
                     console.log("La partie commence !");
