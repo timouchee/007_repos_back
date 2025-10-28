@@ -840,7 +840,9 @@ io.on("connection", (socket) => {
             info_party.etat_party = "ended";
             // metre tous les joueur en spectator
             for (let id_joueur in liste_joueur) {
-                liste_joueur[id_joueur].state = "spectator";
+                if (liste_joueur[id_joueur].state != "quit") {
+                    liste_joueur[id_joueur].state = "spectator";
+                }
             }
             timerEnd = 11;
             //clear tous
@@ -894,7 +896,9 @@ io.on("connection", (socket) => {
             info_party.etat_party = "ended";
             // metre tous les joueur en spectator
             for (let id_joueur in liste_joueur) {
-                liste_joueur[id_joueur].state = "spectator";
+                if (liste_joueur[id_joueur].state != "quit") {
+                    liste_joueur[id_joueur].state = "spectator";
+                }
             }
             timerEnd = 11;
             //clear tous
