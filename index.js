@@ -364,17 +364,17 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, {
     // PROD
 
-    /* cors: {
+    cors: {
         origin: [
             "http://localhost:5173",           // front local Vite
             "https://007-repos-front.vercel.app" // front en ligne (Vercel)
         ],
         methods: ["GET", "POST"]
-    }, */
+    }, 
     // DEV
-    cors: {
+    /* cors: {
         origin: "*", // autorise tout pour dev, à restreindre en prod
-    },
+    }, */
 });
 
 // Connexion d'un client
@@ -496,7 +496,9 @@ io.on("connection", (socket) => {
         info_party.tour_party = 1;
         // mettre tous les joueur dans liste jouruer en state player
         for (let id_joueur in liste_joueur) {
-            liste_joueur[id_joueur].state = "player";
+            if (liste_joueur[id_joueur].state != "quit") {
+                liste_joueur[id_joueur].state = "player";
+            }
         }
         //dire a tout le monde que la partie commence
         io.emit("party_started", { "info_party_for_client": info_party, "liste_joueur_for_client": liste_joueur });
@@ -507,6 +509,9 @@ io.on("connection", (socket) => {
     function construitListeActionPossible() {
         // construit la liste des action possible pour chaque joueur
         for (let id_joueur in liste_joueur) {
+            if (liste_joueur[id_joueur].state == "quit") {
+                continue;
+            }
             let action_possible = {};
             // en gros mettre dans action possible les action dont le cout est inferieur ou egal a la recharge du joueur
             // dans le cas du mirroire il faut AUSSI que le cooldown soit a 0
@@ -540,6 +545,9 @@ io.on("connection", (socket) => {
         // envoie a chaque joueur la liste des action possible
         console.log("Envoie de la liste des actions possibles à chaque joueur");
         for (let id_joueur in liste_joueur) {
+            if (liste_joueur[id_joueur].state == "quit") {
+                continue;
+            }
             console.log("Envoie de la liste des actions possibles à ", id_joueur, ", qui est ", liste_joueur[id_joueur].name);
             // console.log("Payload pour", id_joueur, lst_action_possible_par_joueur[id_joueur]);
             io.to(id_joueur).emit("action_possible", lst_action_possible_par_joueur[id_joueur]);
@@ -575,17 +583,19 @@ io.on("connection", (socket) => {
                 clearInterval(timerInterval); // très important, sinon ça continue de tourner
                 timerInterval = null;
 
-                // reset tous les états
-                for (let id_joueur in liste_joueur) {
-                    liste_joueur[id_joueur].state = "spectator";
-                }
+
                 info_party.etat_party = "waiting";
                 lst_action_possible_par_joueur = {};
                 info_party.tour_party = 0;
                 info_party.nb_joueur = Object.keys(liste_joueur).length;
                 dico_action_joueur = {};
 
+                // reset les etat
                 for (let id_joueur in liste_joueur) {
+                    // sauf si le joueur est quit
+                    if (liste_joueur[id_joueur].state == "quit") {
+                        continue;
+                    }
                     let name = liste_joueur[id_joueur].name;
                     liste_joueur[id_joueur] = {
                         name,
@@ -744,7 +754,9 @@ io.on("connection", (socket) => {
             dico_action_joueur = {};
             info_party.tour_party++;
             for (let id_joueur in liste_joueur) {
-                io.to(id_joueur).emit("resolutionDuTour", resolutionAnswer[id_joueur]);
+                if (liste_joueur[id_joueur].state == "player") {
+                    io.to(id_joueur).emit("resolutionDuTour", resolutionAnswer[id_joueur]);
+                }
             }
 
         }
