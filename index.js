@@ -364,17 +364,17 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, {
     // PROD
 
-    cors: {
+    /* cors: {
         origin: [
             "http://localhost:5173",           // front local Vite
             "https://007-repos-front.vercel.app" // front en ligne (Vercel)
         ],
         methods: ["GET", "POST"]
-    },
-    // DEV
-    /* cors: {
-        origin: "*", // autorise tout pour dev, à restreindre en prod
     }, */
+    // DEV
+    cors: {
+        origin: "*", // autorise tout pour dev, à restreindre en prod
+    },
 });
 
 // Connexion d'un client
@@ -457,7 +457,7 @@ io.on("connection", (socket) => {
         }
         console.log("etat de a la partie :", info_party.etat_party);
         // nombre de joueur comptable pour lancer une game (quit et player non compris)
-        let nb_joueur_spec_win_death = Object.values(liste_joueur_exemple).filter(
+        let nb_joueur_spec_win_death = Object.values(liste_joueur).filter(
             (j) => j.state !== "player" && j.state !== "quit"
         ).length;
 
@@ -468,7 +468,7 @@ io.on("connection", (socket) => {
 
             let countdown = setInterval(() => {
                 timerEnd--;
-                nb_joueur_spec_win_death = Object.values(liste_joueur_exemple).filter(
+                nb_joueur_spec_win_death = Object.values(liste_joueur).filter(
                     (j) => j.state !== "player" && j.state !== "quit"
                 ).length;
                 // verif si y a toujour assez de joueur pour commencer la game
@@ -559,7 +559,7 @@ io.on("connection", (socket) => {
 
         timerInterval = setInterval(() => {
             timerEnd--;
-            let nb_joueur_spec_win_death = Object.values(liste_joueur_exemple).filter(
+            let nb_joueur_spec_win_death = Object.values(liste_joueur).filter(
                 (j) => j.state !== "player" && j.state !== "quit"
             ).length;
             if (nb_joueur_spec_win_death < info_party.min_joueur) {
@@ -598,7 +598,7 @@ io.on("connection", (socket) => {
                 }
 
                 // relancer une partie si les conditions sont ok
-                let nb_joueur_spec_win_death = Object.values(liste_joueur_exemple).filter(
+                let nb_joueur_spec_win_death = Object.values(liste_joueur).filter(
                     (j) => j.state !== "player" && j.state !== "quit"
                 ).length;
                 if (
