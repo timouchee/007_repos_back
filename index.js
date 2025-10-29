@@ -370,7 +370,7 @@ const io = new Server(httpServer, {
             "https://007-repos-front.vercel.app" // front en ligne (Vercel)
         ],
         methods: ["GET", "POST"]
-    }, 
+    },
     // DEV
     /* cors: {
         origin: "*", // autorise tout pour dev, à restreindre en prod
@@ -493,6 +493,7 @@ io.on("connection", (socket) => {
 
     function gameStart() {
         info_party.etat_party = "started";
+        dico_action_joueur = {};
         info_party.tour_party = 1;
         // mettre tous les joueur dans liste jouruer en state player
         for (let id_joueur in liste_joueur) {
@@ -675,6 +676,8 @@ io.on("connection", (socket) => {
             // metre le stat du joueur a winner
             liste_joueur[id_joueur_vivant].state = "winner";
             io.to(id_joueur_vivant).emit("you_win");
+            io.emit("game_state", { "info_party_for_client": info_party, "liste_joueur_for_client": liste_joueur });
+
             // mettre tous les joueur en spectator
             /* for (let id_joueur in liste_joueur) {
                 liste_joueur[id_joueur].state = "spectator";
@@ -683,10 +686,14 @@ io.on("connection", (socket) => {
         }
         else if (nb_joueur_player === 0) {
             // y a plus personne en vie
+            io.emit("game_state", { "info_party_for_client": info_party, "liste_joueur_for_client": liste_joueur });
+
             console.log("Il n'y a plus de joueur en vie, personne n'a gagné !");
             waitingBeforeNewGame();
         }
         else {
+            io.emit("game_state", { "info_party_for_client": info_party, "liste_joueur_for_client": liste_joueur });
+
             construitListeActionPossible();
         }
     }
@@ -843,6 +850,11 @@ io.on("connection", (socket) => {
             // delete liste_joueur[socket.id];
             info_party.nb_joueur = Object.keys(liste_joueur).length;
         }
+        // supprimer sa possible action de dico_action_joueur
+        if (dico_action_joueur[socket.id] != undefined) {
+            delete dico_action_joueur[socket.id];
+        }
+
         let nb_joueur_player = Object.values(liste_joueur)
             .filter(joueur => joueur.state === "player")
             .length;
@@ -898,6 +910,10 @@ io.on("connection", (socket) => {
             liste_joueur[socket.id].recharge = 0;
             // delete liste_joueur[socket.id];
             info_party.nb_joueur = Object.keys(liste_joueur).length;
+        }
+        // supprimer sa possible action de dico_action_joueur
+        if (dico_action_joueur[socket.id] != undefined) {
+            delete dico_action_joueur[socket.id];
         }
         let nb_joueur_player = Object.values(liste_joueur)
             .filter(joueur => joueur.state === "player")
