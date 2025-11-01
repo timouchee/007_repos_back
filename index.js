@@ -595,7 +595,7 @@ io.on("connection", (socket) => {
                 for (let id_joueur in liste_joueur) {
                     // sauf si le joueur est quit
                     if (liste_joueur[id_joueur].state == "quit") {
-                        continue;
+                        delete liste_joueur[id_joueur];
                     }
                     let name = liste_joueur[id_joueur].name;
                     liste_joueur[id_joueur] = {
