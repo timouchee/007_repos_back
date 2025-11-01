@@ -759,6 +759,8 @@ io.on("connection", (socket) => {
             // appliquer les effet de la resolution
             applyEffect(resolutionAnswer);
             dico_action_joueur = {};
+            io.emit("players_list_who_choose", Object.keys(dico_action_joueur)); // la liste des id des joueur qui ont choisi leur action
+
             info_party.tour_party++;
             for (let id_joueur in liste_joueur) {
                 if (liste_joueur[id_joueur].state == "player") {
@@ -792,6 +794,7 @@ io.on("connection", (socket) => {
                 console.log("ERREUR : le joueur ", socket.id, "a une recharge negative");
                 liste_joueur[socket.id].recharge = 0;
             }
+            io.emit("players_list_who_choose", Object.keys(dico_action_joueur)); // la liste des id des joueur qui ont choisi leur action
 
             verifForStartARound()
         }
