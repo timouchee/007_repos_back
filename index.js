@@ -370,7 +370,7 @@ const io = new Server(httpServer, {
             "https://007-repos-front.vercel.app" // front en ligne (Vercel)
         ],
         methods: ["GET", "POST"]
-    },
+    }, 
     // DEV
     /* cors: {
         origin: "*", // autorise tout pour dev, à restreindre en prod
@@ -750,6 +750,24 @@ io.on("connection", (socket) => {
             .length;
         if (Object.keys(dico_action_joueur).length == nb_joueur_player) {
             console.log("Tous les joueurs ont fait leur action");
+
+
+            // on enleve a tous les joueur le cout de leur action
+            for (let socket_id in dico_action_joueur) {
+                let data = dico_action_joueur[socket_id];
+                liste_joueur[socket_id].recharge -= data_action[data.action].cout;
+                if (liste_joueur[socket_id].recharge < 0) {
+                    console.log("ERREUR : le joueur ", socket_id, "a une recharge negative");
+                    liste_joueur[socket_id].recharge = 0;
+                }
+            }
+
+            /* liste_joueur[socket.id].recharge -= data_action[data.action].cout;
+            if (liste_joueur[socket.id].recharge < 0) {
+                console.log("ERREUR : le joueur ", socket.id, "a une recharge negative");
+                liste_joueur[socket.id].recharge = 0;
+            } */
+
             let resolutionAnswer = resolution(dico_action_joueur);
             console.log("Resolution du tour : \n ", resolutionAnswer);
 
@@ -788,12 +806,7 @@ io.on("connection", (socket) => {
             // on met la priority du truc 
             dico_action_joueur[socket.id].priority = data_action[data.action].priority;
             socket.emit("action_valid", "Action reçue");
-            // on enleve a se joueur un nb de recharge egale au cout de l'action
-            liste_joueur[socket.id].recharge -= data_action[data.action].cout;
-            if (liste_joueur[socket.id].recharge < 0) {
-                console.log("ERREUR : le joueur ", socket.id, "a une recharge negative");
-                liste_joueur[socket.id].recharge = 0;
-            }
+
             io.emit("players_list_who_choose", Object.keys(dico_action_joueur)); // la liste des id des joueur qui ont choisi leur action
 
             verifForStartARound()
@@ -843,6 +856,8 @@ io.on("connection", (socket) => {
 
     socket.on("disconnecting", (msg) => {
         console.log("Client déconnecté (via disconnecting) :", socket.id);
+        // noter son le dernier etat de son state
+        let last_tate = liste_joueur[socket.id]?.state || "spectator";
         //suprimer le perso de la party
         if (liste_joueur[socket.id] != undefined) {
             liste_joueur[socket.id].state = "quit";
@@ -853,11 +868,21 @@ io.on("connection", (socket) => {
             // delete liste_joueur[socket.id];
             info_party.nb_joueur = Object.keys(liste_joueur).length;
         }
-        // supprimer sa possible action de dico_action_joueur
-        if (dico_action_joueur[socket.id] != undefined) {
-            delete dico_action_joueur[socket.id];
+
+        // en vraie juste clear dico_action entièrement si le joueur etais en player
+        if (last_tate == "player") {
+            dico_action_joueur = {};
+            // envoyer a tous les joueur l'info de refaire leur tour
+            io.emit("tour_annuler");
+            io.emit("players_list_who_choose", Object.keys(dico_action_joueur)); // la liste des id des joueur qui ont choisi leur action
+
         }
 
+        // supprimer sa possible action de dico_action_joueur
+        /* if (dico_action_joueur[socket.id] != undefined) {
+            delete dico_action_joueur[socket.id];
+            
+        } */
         let nb_joueur_player = Object.values(liste_joueur)
             .filter(joueur => joueur.state === "player")
             .length;
@@ -886,6 +911,18 @@ io.on("connection", (socket) => {
 
         }
         else {
+            // si le socket.id du joueur deconnecté est dans dico_action_joueur on le suprime
+            if (dico_action_joueur[socket.id] != undefined) {
+                console.log("Le joueur déconnecté avait déjà fait son action, on la supprime :", socket.id);
+                delete dico_action_joueur[socket.id];
+                verifForStartARound();
+            }
+            // si le joueur deconnecté etais player 
+            else if (last_tate == "player") {
+                console.log("Le joueur déconnecté n'avait pas encore fait son action mais etais en state player, on verifie si la partie peut continuer :", socket.id);
+                verifForStartARound();
+            }
+
             io.emit("game_state", { "info_party_for_client": info_party, "liste_joueur_for_client": liste_joueur });
             socket.emit("admin_send_all", {
                 "info_party_for_admin": info_party,
@@ -914,10 +951,21 @@ io.on("connection", (socket) => {
             // delete liste_joueur[socket.id];
             info_party.nb_joueur = Object.keys(liste_joueur).length;
         }
-        // supprimer sa possible action de dico_action_joueur
-        if (dico_action_joueur[socket.id] != undefined) {
-            delete dico_action_joueur[socket.id];
+
+        // en vraie juste clear dico_action entièrement si le joueur etais en player
+        if (last_tate == "player") {
+            dico_action_joueur = {};
+            // envoyer a tous les joueur l'info de refaire leur tour
+            io.emit("tour_annuler");
+            io.emit("players_list_who_choose", Object.keys(dico_action_joueur)); // la liste des id des joueur qui ont choisi leur action
+
         }
+
+        // supprimer sa possible action de dico_action_joueur
+        /* if (dico_action_joueur[socket.id] != undefined) {
+            delete dico_action_joueur[socket.id];
+            
+        } */
         let nb_joueur_player = Object.values(liste_joueur)
             .filter(joueur => joueur.state === "player")
             .length;
