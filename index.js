@@ -395,6 +395,20 @@ io.on("connection", (socket) => {
         sendListeActionPossibleForOne(socket.id);
     });
 
+    socket.on("admin_add_recharge", () => {
+        // ajouter 1 recharge a tous les joueur player
+        for (let id_joueur in liste_joueur) {
+            if (liste_joueur[id_joueur].state == "player") {
+                liste_joueur[id_joueur].recharge += 1;
+            }
+        }
+        socket.emit("admin_send_all", {
+            "info_party_for_admin": info_party,
+            "liste_joueur_for_admin": liste_joueur,
+            "dico_action_joueur_admin": dico_action_joueur,
+        });
+    });
+
     // Quand un joueur envoie un message
     socket.on("send_message", (msg) => {
         const message = {
@@ -538,6 +552,12 @@ io.on("connection", (socket) => {
                 {}
                 */
             }
+            // verifier la liste des effect de ce joueur pour enlever les action qu'il ne peut plus faire
+            for (let effet of liste_joueur[id_joueur].effect) {
+                if (effet[0] === "remove") {
+                    delete action_possible[effet[1]];
+                }
+            }
             lst_action_possible_par_joueur[id_joueur] = action_possible;
         }
     }
@@ -596,6 +616,7 @@ io.on("connection", (socket) => {
                     // sauf si le joueur est quit
                     if (liste_joueur[id_joueur].state == "quit") {
                         delete liste_joueur[id_joueur];
+                        continue;
                     }
                     let name = liste_joueur[id_joueur].name;
                     liste_joueur[id_joueur] = {
@@ -628,6 +649,7 @@ io.on("connection", (socket) => {
     function applyEffect(resolutionAnswer) {
         // exemple de resolutionAnswer
         // { EhHr_AvFh_7C4vg0AAAG: [ [ 'add', 1 ] ], rIZCXWuRqdboBJM3AAAF: [] }
+        console.log("liste  des effets :", resolutionAnswer);
         for (let id_joueur in resolutionAnswer) {
             for (let effet of resolutionAnswer[id_joueur]) {
                 switch (effet[0]) {
@@ -647,11 +669,13 @@ io.on("connection", (socket) => {
                     case 'remove':
                         //effet[1] est le nom de l'action que le joueur n'aura plus le droit d'avoir
                         // effect est une liste qui liste tous les effect que le joueur a pris positif comme négatif
-                        liste_joueur[id_joueur].effect.push(effet[1]);
-                        if (liste_joueur[id_joueur].effect.includes(effet[1])) {
+                        // liste_joueur[id_joueur].effect.push(effet[1]);
+                        liste_joueur[id_joueur].effect.push(effet);
+                        /* if (liste_joueur[id_joueur].effect.includes(effet[1])) {
                             // rajouter l'effet [remove, effet[1]] a la liste des effect du joueur
-                            liste_joueur[id_joueur].effect.push([effet[0], effet[1]]);
-                        }
+                            // liste_joueur[id_joueur].effect.push([effet[0], effet[1]]);
+                            liste_joueur[id_joueur].effect.push(effet);
+                        } */
                         break;
                 }
             }
