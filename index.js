@@ -527,7 +527,7 @@ io.on("connection", (socket) => {
             liste_joueur[id_joueur] = {
                 name,
                 cooldown_miroire: 0,
-                state: "spectator",
+                state: "player",
                 recharge: 0,
                 PV: 1,
                 effect: [],
