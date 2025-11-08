@@ -515,6 +515,25 @@ io.on("connection", (socket) => {
                 liste_joueur[id_joueur].state = "player";
             }
         }
+
+        // reset les etat
+        for (let id_joueur in liste_joueur) {
+            // sauf si le joueur est quit
+            if (liste_joueur[id_joueur].state == "quit") {
+                delete liste_joueur[id_joueur];
+                continue;
+            }
+            let name = liste_joueur[id_joueur].name;
+            liste_joueur[id_joueur] = {
+                name,
+                cooldown_miroire: 0,
+                state: "spectator",
+                recharge: 0,
+                PV: 1,
+                effect: [],
+            };
+        }
+
         //dire a tout le monde que la partie commence
         io.emit("party_started", { "info_party_for_client": info_party, "liste_joueur_for_client": liste_joueur });
         construitListeActionPossible();
